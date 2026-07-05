@@ -579,4 +579,4 @@ function BridgeRegistryEditor({
       )}
     </div>
   );
-      }
+            }
