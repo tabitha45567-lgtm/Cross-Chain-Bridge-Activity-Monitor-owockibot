@@ -23,11 +23,6 @@ import {
   Legend,
 } from "recharts";
 
-// ---------------------------------------------------------------------------
-// Static registry of known cross-chain bridge contracts deployed ON Base.
-// Addresses verified against BaseScan / official docs. Extend at runtime
-// with the "add contract" control if you want to track another route.
-// ---------------------------------------------------------------------------
 const DEFAULT_BRIDGES = [
   {
     name: "Base Native Bridge",
@@ -58,6 +53,7 @@ const QUICK_TOKENS = [
 const BASE_CHAIN_ID = 8453;
 const LIFI_BASE = "https://li.quest/v1";
 const EXPLORER = "https://basescan.org";
+const ETHERSCAN_V2_BASE = "https://api.etherscan.io/v2/api";
 
 function short(addr) {
   if (!addr) return "";
@@ -94,11 +90,10 @@ export default function BridgeMonitor() {
   const [newBridgeAddr, setNewBridgeAddr] = useState("");
 
   const [chainsById, setChainsById] = useState({});
-  const [lifi, setLifi] = useState({ status: "idle" }); // idle|loading|ok|unsupported|error
-  const [onchain, setOnchain] = useState({ status: "idle" }); // idle|loading|ok|error
+  const [lifi, setLifi] = useState({ status: "idle" });
+  const [onchain, setOnchain] = useState({ status: "idle" });
   const [lastRefreshed, setLastRefreshed] = useState(null);
 
-  // Load LI.FI chain directory once, for labeling routes.
   useEffect(() => {
     fetchJson(`${LIFI_BASE}/chains`)
       .then((d) => {
@@ -133,10 +128,7 @@ export default function BridgeMonitor() {
     try {
       const results = await Promise.all(
         bridgeList.map(async (b) => {
-          const url = `${EXPLORER.replace(
-            "basescan.org",
-            "api.basescan.org"
-          )}/api?module=account&action=tokentx&contractaddress=${address}&address=${b.address}&sort=desc&page=1&offset=100&apikey=${key_}`;
+          const url = `${ETHERSCAN_V2_BASE}?chainid=${BASE_CHAIN_ID}&module=account&action=tokentx&contractaddress=${address}&address=${b.address}&sort=desc&page=1&offset=100&apikey=${key_}`;
           const data = await fetchJson(url);
           if (data.status !== "1") {
             return { bridge: b, error: data.result || "no data", txs: [] };
@@ -186,7 +178,7 @@ export default function BridgeMonitor() {
         uniqueIn: inAddrs.size,
         perBridge,
         sampleNote:
-          "Based on the most recent 100 token-transfer events per bridge contract (BaseScan tokentx).",
+          "Based on the most recent 100 token-transfer events per bridge contract (Etherscan V2 tokentx).",
       });
     } catch (e) {
       setOnchain({ status: "error", error: String(e.message || e) });
@@ -224,7 +216,6 @@ export default function BridgeMonitor() {
         .live-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
       `}</style>
 
-      {/* Header */}
       <header className="border-b border-[#232C4D] px-6 py-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#8B93B8]">
@@ -245,7 +236,6 @@ export default function BridgeMonitor() {
       </header>
 
       <main className="px-6 py-6 max-w-6xl mx-auto space-y-8">
-        {/* Token selector */}
         <section className="rounded-xl border border-[#232C4D] bg-[#121933] p-5">
           <div className="flex flex-wrap gap-2 mb-3">
             {QUICK_TOKENS.map((t) => (
@@ -279,7 +269,7 @@ export default function BridgeMonitor() {
             <input
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="BaseScan API key (optional, raises rate limits)"
+              placeholder="Etherscan API key (required — etherscan.io/apis)"
               className="bg-[#0B1020] border border-[#232C4D] rounded-lg px-3 py-2 text-sm font-mono outline-none placeholder:text-[#4A5280] md:w-80"
             />
             <button
@@ -294,12 +284,12 @@ export default function BridgeMonitor() {
           </div>
           <p className="text-xs text-[#8B93B8] mt-3 flex items-start gap-1.5">
             <Info size={13} className="mt-0.5 shrink-0" />
-            Get a free BaseScan key at basescan.org/apis — without one, on-chain
-            queries fall back to a shared demo key and may be rate-limited.
+            BaseScan's old API was retired in favor of Etherscan's unified V2
+            API. Get a free key at etherscan.io/apis (works for Base and every
+            other chain through the same key) and paste it above.
           </p>
         </section>
 
-        {/* Aggregator support (LI.FI) */}
         <section className="rounded-xl border border-[#232C4D] bg-[#121933] p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-[#8B93B8] mb-3">
             Bridge-aggregator support (LI.FI)
@@ -360,7 +350,6 @@ export default function BridgeMonitor() {
           )}
         </section>
 
-        {/* On-chain scan */}
         <section className="rounded-xl border border-[#232C4D] bg-[#121933] p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-[#8B93B8]">
@@ -383,7 +372,7 @@ export default function BridgeMonitor() {
           {onchain.status === "error" && (
             <div className="flex items-start gap-2 text-sm text-[#FF6B6B]">
               <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-              <p>{onchain.error || "Could not reach BaseScan."}</p>
+              <p>{onchain.error || "Could not reach Etherscan's API."}</p>
             </div>
           )}
           {onchain.status === "ok" && (
@@ -443,8 +432,9 @@ export default function BridgeMonitor() {
 
         <footer className="text-xs text-[#4A5280] pb-6 space-y-1">
           <p>
-            Sources: LI.FI aggregator API (li.quest) · BaseScan API (tokentx) ·
-            bridge-contract registry defined in source.
+            Sources: LI.FI aggregator API (li.quest) · Etherscan V2 API
+            (tokentx, chainid=8453) · bridge-contract registry defined in
+            source.
           </p>
           {lastRefreshed && <p>Last refreshed {lastRefreshed.toLocaleTimeString()}</p>}
           <p>
@@ -589,4 +579,4 @@ function BridgeRegistryEditor({
       )}
     </div>
   );
-}
+      }
