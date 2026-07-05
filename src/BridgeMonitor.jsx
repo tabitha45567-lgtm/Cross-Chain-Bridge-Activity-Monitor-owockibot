@@ -53,7 +53,7 @@ const QUICK_TOKENS = [
 const BASE_CHAIN_ID = 8453;
 const LIFI_BASE = "https://li.quest/v1";
 const EXPLORER = "https://basescan.org";
-const ETHERSCAN_V2_BASE = "https://api.etherscan.io/v2/api";
+const BLOCKSCOUT_BASE = "https://api.blockscout.com/v2/api";
 
 function short(addr) {
   if (!addr) return "";
@@ -124,14 +124,14 @@ export default function BridgeMonitor() {
 
   const scanOnchain = useCallback(async (address, key, bridgeList) => {
     setOnchain({ status: "loading" });
-    const key_ = key?.trim() || "YourApiKeyToken";
+    const key_ = key?.trim() || "";
     try {
       const results = await Promise.all(
         bridgeList.map(async (b) => {
-          const url = `${ETHERSCAN_V2_BASE}?chainid=${BASE_CHAIN_ID}&module=account&action=tokentx&contractaddress=${address}&address=${b.address}&sort=desc&page=1&offset=100&apikey=${key_}`;
+          const url = `${BLOCKSCOUT_BASE}?chain_id=${BASE_CHAIN_ID}&module=account&action=tokentx&contractaddress=${address}&address=${b.address}&sort=desc&page=1&offset=100&apikey=${key_}`;
           const data = await fetchJson(url);
           if (data.status !== "1") {
-            return { bridge: b, error: data.result || "no data", txs: [] };
+            return { bridge: b, error: data.result || data.message || "no data", txs: [] };
           }
           return { bridge: b, txs: data.result || [] };
         })
@@ -178,7 +178,7 @@ export default function BridgeMonitor() {
         uniqueIn: inAddrs.size,
         perBridge,
         sampleNote:
-          "Based on the most recent 100 token-transfer events per bridge contract (Etherscan V2 tokentx).",
+          "Based on the most recent 100 token-transfer events per bridge contract (Blockscout tokentx).",
       });
     } catch (e) {
       setOnchain({ status: "error", error: String(e.message || e) });
@@ -269,7 +269,7 @@ export default function BridgeMonitor() {
             <input
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Etherscan API key (required — etherscan.io/apis)"
+              placeholder="Blockscout API key (free — dev.blockscout.com)"
               className="bg-[#0B1020] border border-[#232C4D] rounded-lg px-3 py-2 text-sm font-mono outline-none placeholder:text-[#4A5280] md:w-80"
             />
             <button
@@ -284,9 +284,9 @@ export default function BridgeMonitor() {
           </div>
           <p className="text-xs text-[#8B93B8] mt-3 flex items-start gap-1.5">
             <Info size={13} className="mt-0.5 shrink-0" />
-            BaseScan's old API was retired in favor of Etherscan's unified V2
-            API. Get a free key at etherscan.io/apis (works for Base and every
-            other chain through the same key) and paste it above.
+            Etherscan now requires a paid plan for Base. This scanner uses
+            Blockscout instead, whose free tier still covers Base — get a
+            free key at dev.blockscout.com and paste it above.
           </p>
         </section>
 
@@ -372,7 +372,7 @@ export default function BridgeMonitor() {
           {onchain.status === "error" && (
             <div className="flex items-start gap-2 text-sm text-[#FF6B6B]">
               <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-              <p>{onchain.error || "Could not reach Etherscan's API."}</p>
+              <p>{onchain.error || "Could not reach Blockscout's API."}</p>
             </div>
           )}
           {onchain.status === "ok" && (
@@ -432,8 +432,8 @@ export default function BridgeMonitor() {
 
         <footer className="text-xs text-[#4A5280] pb-6 space-y-1">
           <p>
-            Sources: LI.FI aggregator API (li.quest) · Etherscan V2 API
-            (tokentx, chainid=8453) · bridge-contract registry defined in
+            Sources: LI.FI aggregator API (li.quest) · Blockscout API
+            (tokentx, chain_id=8453) · bridge-contract registry defined in
             source.
           </p>
           {lastRefreshed && <p>Last refreshed {lastRefreshed.toLocaleTimeString()}</p>}
@@ -579,4 +579,4 @@ function BridgeRegistryEditor({
       )}
     </div>
   );
-            }
+      }
